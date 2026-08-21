@@ -1,0 +1,112 @@
+name: Deploy Coordination Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - "ansible/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-coordination-server
+  cancel-in-progress: false
+
+jobs:
+  tofu-apply:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    outputs:
+      instance_name: ${{ steps.out.outputs.instance_name }}
+      zone: ${{ steps.out.outputs.zone }}
+      external_ip: ${{ steps.out.outputs.external_ip }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.8.*"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: tofu init
+        run: |
+          tofu init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="prefix=coordination-server"
+
+      - name: tofu apply
+        run: |
+          tofu apply -auto-approve -input=false \
+            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var="region=${{ vars.GCP_REGION }}" \
+            -var="zone=${{ vars.GCP_ZONE }}" \
+            -var="instance_name=${{ vars.INSTANCE_NAME }}" \
+            -var="machine_type=${{ vars.MACHINE_TYPE }}" \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}"
+
+      - id: out
+        run: |
+          echo "instance_name=$(tofu output -raw instance_name)" >> "$GITHUB_OUTPUT"
+          echo "zone=$(tofu output -raw zone)" >> "$GITHUB_OUTPUT"
+          echo "external_ip=$(tofu output -raw external_ip)" >> "$GITHUB_OUTPUT"
+
+  ansible-deploy:
+    needs: tofu-apply
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install Ansible + collections
+        run: |
+          pipx install --include-deps ansible
+          ansible-galaxy collection install -r requirements.yml
+
+      - name: Write the deploy SSH key
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Write CI-only secrets vars (never committed)
+        run: |
+          cat > group_vars/all/secrets.yml <<VARS_EOF
+          headplane_oidc_client_id: "${{ secrets.GOOGLE_OIDC_CLIENT_ID }}"
+          headplane_oidc_client_secret: "${{ secrets.GOOGLE_OIDC_CLIENT_SECRET }}"
+          VARS_EOF
+
+      - name: Write the inventory (target host resolved via IAP, not a public IP)
+        run: |
+          cat > inventory/hosts.ini <<INVENTORY_EOF
+          [coordination_server]
+          ${{ needs.tofu-apply.outputs.instance_name }} ansible_host=${{ needs.tofu-apply.outputs.instance_name }} ansible_user=deploy
+
+          [coordination_server:vars]
+          ansible_ssh_private_key_file=~/.ssh/deploy_key
+          ansible_ssh_common_args=-o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --project=${{ secrets.GCP_PROJECT_ID }} --zone=${{ needs.tofu-apply.outputs.zone }}" -o StrictHostKeyChecking=accept-new
+          INVENTORY_EOF
+
+      - name: Run playbook
+        run: |
+          ansible-playbook playbook.yml -e "domain=${{ vars.DOMAIN }}"

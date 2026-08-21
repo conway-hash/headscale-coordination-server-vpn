@@ -1,0 +1,9 @@
+---
+- name: Deploy Caddy + Headscale + Headplane coordination server
+  hosts: coordination_server
+  become: true
+  gather_facts: true
+
+  roles:
+    - docker
+    - coordination_stack

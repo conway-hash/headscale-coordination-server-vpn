@@ -1,0 +1,48 @@
+{{ ansible_managed | default('# Managed by Ansible — edits will be overwritten') }}
+services:
+  headscale:
+    image: docker.io/headscale/headscale:{{ headscale_version }}
+    container_name: headscale
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/run/headscale
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /etc/headscale:/etc/headscale:ro
+      - /var/lib/headscale:/var/lib/headscale
+    command: serve
+    healthcheck:
+      test: ["CMD", "headscale", "health"]
+
+  headplane:
+    image: {{ headplane_image }}
+    container_name: headplane
+    restart: unless-stopped
+    depends_on:
+      - headscale
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - {{ stack_dir }}/headplane/config.yaml:/etc/headplane/config.yaml:ro
+      - {{ stack_dir }}/headplane/data:/var/lib/headplane
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    depends_on:
+      - headscale
+      - headplane
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - {{ stack_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,23 @@
+# OpenTofu / Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/tfplan
+terraform/*.tfplan
+terraform/terraform.tfvars
+terraform/crash.log*
+# .terraform.lock.hcl is intentionally NOT ignored — commit it for
+# reproducible provider versions.
+
+# Ansible
+ansible/inventory/hosts.ini
+ansible/group_vars/all/secrets.yml
+ansible/*.retry
+
+# Locally generated deploy keypair, if you make one outside SETUP.md's flow
+deploy_key
+deploy_key.pub
+
+# OS / editor cruft
+.DS_Store
+*.swp

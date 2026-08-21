@@ -1,0 +1,13 @@
+# Real inventory (inventory/hosts.ini) is git-ignored and, in CI, generated
+# at deploy time from OpenTofu outputs — see .github/workflows/deploy.yml.
+#
+# For a manual/local run, copy this to inventory/hosts.ini and fill in your
+# own project/zone. Note the host is the *instance name*, not an IP: SSH goes
+# through an IAP tunnel, never over the public internet.
+
+[coordination_server]
+coordination-server ansible_host=coordination-server ansible_user=deploy
+
+[coordination_server:vars]
+ansible_ssh_private_key_file=~/.ssh/deploy_key
+ansible_ssh_common_args=-o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --project=YOUR_PROJECT_ID --zone=YOUR_ZONE" -o StrictHostKeyChecking=accept-new

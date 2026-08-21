@@ -1,0 +1,121 @@
+---
+- name: Create stack + data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0750"
+    owner: root
+    group: root
+  loop:
+    - "{{ stack_dir }}"
+    - /etc/headscale
+    - /var/lib/headscale
+    - "{{ stack_dir }}/headplane"
+    - "{{ stack_dir }}/headplane/data"
+
+- name: Render headscale server config
+  ansible.builtin.template:
+    src: headscale-config.yaml.j2
+    dest: /etc/headscale/config.yaml
+    mode: "0640"
+  notify: restart headscale
+
+# --- Headplane cookie secret: generated once on the box, never in git ------
+- name: Check for an existing Headplane cookie secret
+  ansible.builtin.stat:
+    path: "{{ stack_dir }}/headplane/.cookie_secret"
+  register: cookie_secret_file
+
+- name: Generate a Headplane cookie secret
+  ansible.builtin.shell: |
+    set -euo pipefail
+    openssl rand -hex 16 > {{ stack_dir }}/headplane/.cookie_secret
+  args:
+    creates: "{{ stack_dir }}/headplane/.cookie_secret"
+  changed_when: not cookie_secret_file.stat.exists
+
+- name: Lock down the cookie secret file
+  ansible.builtin.file:
+    path: "{{ stack_dir }}/headplane/.cookie_secret"
+    mode: "0600"
+
+- name: Read the Headplane cookie secret
+  ansible.builtin.slurp:
+    src: "{{ stack_dir }}/headplane/.cookie_secret"
+  register: cookie_secret_raw
+
+- name: Set cookie secret fact
+  ansible.builtin.set_fact:
+    headplane_cookie_secret: "{{ cookie_secret_raw.content | b64decode | trim }}"
+
+# --- Compose + Caddy -------------------------------------------------------
+- name: Render docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ stack_dir }}/docker-compose.yml"
+    mode: "0640"
+
+- name: Render Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ stack_dir }}/Caddyfile"
+    mode: "0644"
+
+- name: Bring up headscale first (Headplane needs it running to mint an API key)
+  community.docker.docker_compose_v2:
+    project_src: "{{ stack_dir }}"
+    services: [headscale]
+    state: present
+
+- name: Wait for headscale to report healthy
+  community.docker.docker_container_info:
+    name: headscale
+  register: headscale_info
+  until: headscale_info.container.State.Health.Status | default('') == 'healthy'
+  retries: 12
+  delay: 5
+
+# --- Headscale API key for Headplane: minted once, persisted root-only ----
+- name: Check for a stored Headscale API key
+  ansible.builtin.stat:
+    path: "{{ stack_dir }}/headplane/.api_key"
+  register: api_key_file
+
+- name: Mint a Headscale API key for Headplane
+  community.docker.docker_container_exec:
+    container: headscale
+    command: headscale apikeys create --expiration 90d
+  register: headscale_apikey_cmd
+  when: not api_key_file.stat.exists
+
+- name: Persist the API key (root-only, outside git entirely)
+  ansible.builtin.copy:
+    dest: "{{ stack_dir }}/headplane/.api_key"
+    content: "{{ headscale_apikey_cmd.stdout | trim }}\n"
+    mode: "0600"
+  when: not api_key_file.stat.exists
+
+- name: Read the stored API key
+  ansible.builtin.slurp:
+    src: "{{ stack_dir }}/headplane/.api_key"
+  register: api_key_raw
+
+- name: Set API key fact
+  ansible.builtin.set_fact:
+    headscale_api_key: "{{ api_key_raw.content | b64decode | trim }}"
+
+# Note: the key above expires after 90 days. Headplane doesn't re-mint one on
+# its own, so rotate it by deleting {{ stack_dir }}/headplane/.api_key and
+# re-running this playbook.
+
+- name: Render Headplane config
+  ansible.builtin.template:
+    src: headplane-config.yaml.j2
+    dest: "{{ stack_dir }}/headplane/config.yaml"
+    mode: "0640"
+
+- name: Bring up the full stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ stack_dir }}"
+    state: present
+    recreate: auto

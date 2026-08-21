@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars for local runs (gitignored) — or just pass -var
+# flags by hand. In CI, all of these come from GitHub repo secrets/variables
+# instead; see .github/workflows/deploy.yml and SETUP.md.
+
+project_id    = "your-gcp-project-id"
+region        = "europe-west1"
+zone          = "europe-west1-b"
+instance_name = "coordination-server"
+machine_type  = "e2-small"
+
+# ssh_public_key is deliberately left unset here. Generate a keypair
+# (see SETUP.md) and pass the public half explicitly:
+#   tofu apply -var="ssh_public_key=$(cat deploy_key.pub)"
