@@ -9,7 +9,7 @@ the work.
 ```bash
 export PROJECT_ID="your-gcp-project-id"        # must not already exist, or already be yours
 export BILLING_ACCOUNT="XXXXXX-XXXXXX-XXXXXX"  # gcloud billing accounts list
-export REPO="conway-hash/hscs-infra"           # GitHub owner/repo
+export REPO="conway-hash/headscale-coordination-server-vpn" # GitHub owner/repo
 export DOMAIN="vpn.conway-hash.com"            # public hostname Caddy serves
 export REGION="europe-west1"
 export ZONE="europe-west1-b"

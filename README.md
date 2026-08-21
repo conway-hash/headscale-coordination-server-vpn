@@ -1,4 +1,4 @@
-# hscs-infra
+# headscale-coordination-server-vpn
 
 OpenTofu + Ansible, running from GitHub Actions, that stand up a small GCP VM
 and turn it into a self-hosted [Tailscale](https://tailscale.com)-compatible
