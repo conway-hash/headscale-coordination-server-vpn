@@ -4,6 +4,48 @@
   become: true
   gather_facts: true
 
+  vars:
+    swap_size_mb: 2048
+
+  pre_tasks:
+    # e2-micro has 1 GB RAM — headroom for docker + headplane during
+    # updates/restarts, not a substitute for RAM day-to-day.
+    - name: Check for an existing swapfile
+      ansible.builtin.stat:
+        path: /swapfile
+      register: swapfile
+
+    - name: Create swapfile
+      ansible.builtin.command: fallocate -l {{ swap_size_mb }}M /swapfile
+      when: not swapfile.stat.exists
+
+    - name: Secure swapfile permissions
+      ansible.builtin.file:
+        path: /swapfile
+        mode: "0600"
+      when: not swapfile.stat.exists
+
+    - name: Format swapfile
+      ansible.builtin.command: mkswap /swapfile
+      when: not swapfile.stat.exists
+
+    - name: Enable swapfile
+      ansible.builtin.command: swapon /swapfile
+      when: not swapfile.stat.exists
+
+    - name: Persist swapfile in fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: "/swapfile none swap sw 0 0"
+        create: true
+
+    - name: Prefer RAM over swap (swap is a safety net, not primary memory)
+      ansible.posix.sysctl:
+        name: vm.swappiness
+        value: "10"
+        state: present
+        sysctl_set: true
+
   roles:
     - docker
     - coordination_stack

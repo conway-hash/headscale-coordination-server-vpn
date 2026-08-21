@@ -4,15 +4,20 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "GCP region for the VPC/subnet."
+  description = <<-EOT
+    GCP region for the VPC/subnet. Defaults to us-central1 because GCP's
+    Always Free tier only covers Compute Engine usage in us-west1,
+    us-central1, or us-east1 — pick a different region and this stops being
+    free.
+  EOT
   type        = string
-  default     = "europe-west1"
+  default     = "us-central1"
 }
 
 variable "zone" {
-  description = "GCP zone for the VM."
+  description = "GCP zone for the VM. Must be in the region above."
   type        = string
-  default     = "europe-west1-b"
+  default     = "us-central1-a"
 }
 
 variable "instance_name" {
@@ -22,15 +27,20 @@ variable "instance_name" {
 }
 
 variable "machine_type" {
-  description = "Compute Engine machine type. e2-small comfortably runs headscale + headplane + caddy at small/personal scale."
+  description = <<-EOT
+    Compute Engine machine type. Defaults to e2-micro — the only shape
+    covered by the Always Free tier (1 instance per billing account, not per
+    project). e2-small/e2-medium are always billed; use those instead if
+    you'd rather have real headroom than a free instance.
+  EOT
   type        = string
-  default     = "e2-small"
+  default     = "e2-micro"
 }
 
 variable "boot_disk_size_gb" {
-  description = "Boot disk size in GB."
+  description = "Boot disk size in GB. Free tier covers up to 30 GB of pd-standard."
   type        = number
-  default     = 20
+  default     = 30
 }
 
 variable "ssh_user" {

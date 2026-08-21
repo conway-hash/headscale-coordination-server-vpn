@@ -4,6 +4,29 @@ Everything here is run **once**, by a human, from a machine with `gcloud` and
 `gh` installed and authenticated. After this, pushes/PRs to this repo do all
 the work.
 
+## Staying inside GCP's Always Free tier
+
+This repo's defaults (`terraform/variables.tf`) target Compute Engine's
+Always Free allowance:
+
+- **`e2-micro`**, and only in **`us-west1`, `us-central1`, or `us-east1`**
+  (default: `us-central1`) — any other machine type or region is billed
+  normally.
+- **One `pd-standard` boot disk up to 30 GB** — `pd-balanced`/`pd-ssd` are
+  never free, at any size.
+- **One free instance per billing account**, not per project — if you (or
+  anything else on this billing account) already runs a free-tier VM
+  elsewhere, this one will be billed too.
+- The static IP is free *while attached to a running instance*. If you ever
+  stop the instance without releasing the IP, GCP starts charging for the
+  now-idle reservation.
+- Network egress: ~1 GB/month to most destinations is free; a VPN
+  relaying real traffic can exceed that fairly easily — check the Billing
+  page after the first month rather than assuming it's zero.
+- `e2-micro` has 1 GB RAM. The playbook adds a 2 GB swapfile as headroom for
+  Docker + Headplane, but this is not a machine with slack to spare — expect
+  to upsize to `e2-small`/`e2-medium` (both billed) if the tailnet grows.
+
 ## 0. Fill in these values
 
 ```bash
@@ -11,8 +34,8 @@ export PROJECT_ID="your-gcp-project-id"        # must not already exist, or alre
 export BILLING_ACCOUNT="XXXXXX-XXXXXX-XXXXXX"  # gcloud billing accounts list
 export REPO="conway-hash/headscale-coordination-server-vpn" # GitHub owner/repo
 export DOMAIN="vpn.conway-hash.com"            # public hostname Caddy serves
-export REGION="europe-west1"
-export ZONE="europe-west1-b"
+export REGION="us-central1"                    # Always Free tier: us-west1 | us-central1 | us-east1 only
+export ZONE="us-central1-a"
 export SA_NAME="gh-actions-deployer"
 export POOL_ID="github-pool"
 export PROVIDER_ID="github-provider"
@@ -127,7 +150,7 @@ gh secret set GOOGLE_OIDC_CLIENT_SECRET      --body "PASTE_CLIENT_SECRET" -R "$R
 gh variable set GCP_REGION    --body "$REGION" -R "$REPO"
 gh variable set GCP_ZONE      --body "$ZONE" -R "$REPO"
 gh variable set INSTANCE_NAME --body "coordination-server" -R "$REPO"
-gh variable set MACHINE_TYPE  --body "e2-small" -R "$REPO"
+gh variable set MACHINE_TYPE  --body "e2-micro" -R "$REPO"
 gh variable set DOMAIN        --body "$DOMAIN" -R "$REPO"
 ```
 

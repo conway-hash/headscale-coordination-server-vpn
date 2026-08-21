@@ -77,7 +77,9 @@ resource "google_compute_instance" "coordination_server" {
     initialize_params {
       image = "ubuntu-os-cloud/ubuntu-2404-lts-amd64"
       size  = var.boot_disk_size_gb
-      type  = "pd-balanced"
+      # pd-standard, not pd-balanced/pd-ssd — only pd-standard is covered by
+      # the Always Free tier (up to 30 GB).
+      type = "pd-standard"
     }
   }
 

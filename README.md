@@ -94,6 +94,12 @@ exactly once, on merge to `main`.
 
 ## Known limitations / possible follow-ups
 
+- Defaults target GCP's **Always Free** tier: `e2-micro` in `us-central1`
+  with a 30 GB `pd-standard` disk. That's one free instance per *billing
+  account* (not per project), 1 GB RAM (a 2 GB swapfile is provisioned as
+  headroom, not a fix), and ~1 GB/month of free egress — a VPN relaying real
+  traffic can exceed that. See "Staying inside GCP's Always Free tier" in
+  `SETUP.md` before assuming this costs nothing.
 - The Headscale API key minted for Headplane expires after 90 days and isn't
   auto-rotated (see "Rotating things" in `SETUP.md`).
 - No observability stack (logs/metrics ship nowhere yet beyond what the VM's
