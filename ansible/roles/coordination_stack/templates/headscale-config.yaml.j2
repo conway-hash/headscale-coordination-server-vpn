@@ -22,7 +22,13 @@ derp:
   update_frequency: 24h
 
 disable_check_updates: false
-ephemeral_node_inactivity_timeout: 30m
+
+node:
+  # Re-authenticate nodes periodically rather than trusting a login forever.
+  # (This replaces the old oidc.expiry key, which 0.29 removed outright.)
+  expiry: 180d
+  ephemeral:
+    inactivity_timeout: 30m
 
 database:
   type: sqlite
@@ -50,11 +56,10 @@ oidc:
   client_id: "{{ oidc_client_id }}"
   client_secret: "{{ oidc_client_secret }}"
   scope: ["openid", "profile", "email"]
+  email_verified_required: true
   pkce:
     enabled: true
     method: S256
-  # Re-authenticate nodes periodically rather than trusting a login forever.
-  expiry: 180d
   use_expiry_from_token: false
   # Closed allowlist — anyone not listed here is refused, regardless of
   # whether they can complete the Google login itself.
