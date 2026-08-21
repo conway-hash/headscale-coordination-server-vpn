@@ -98,8 +98,11 @@ exactly once, on merge to `main`.
   authenticated by the same Workload Identity as the rest of the deploy.
 - **Shielded VM** (secure boot, vTPM, integrity monitoring) enabled by
   default.
-- **The VM's own service account** can write logs/metrics and nothing else —
-  it has no standing access to any other GCP API.
+- **The VM has no service account at all.** Nothing running on it ever calls
+  a GCP API, so it has zero standing access by construction — not narrowly
+  scoped access, none. (This also keeps the deployer identity's own
+  permissions smaller: it never needs `iam.serviceAccountAdmin` or
+  project-level `setIamPolicy` to stand the VM up.)
 - **Runtime secrets never live in this repo.** The Headscale API key and the
   Headplane cookie secret are generated on the box itself on first deploy and
   persisted root-only outside git. The Google OIDC client ID/secret are

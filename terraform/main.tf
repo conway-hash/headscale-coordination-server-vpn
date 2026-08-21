@@ -47,26 +47,6 @@ resource "google_compute_firewall" "allow_iap_ssh" {
   }
 }
 
-# Dedicated, near-privilege-free identity for the VM itself. It only needs to
-# be able to write its own logs/metrics — it has no business calling any
-# other GCP API.
-resource "google_service_account" "vm_sa" {
-  account_id   = "${var.instance_name}-vm"
-  display_name = "Coordination server VM"
-}
-
-resource "google_project_iam_member" "vm_sa_log_writer" {
-  project = var.project_id
-  role    = "roles/logging.logWriter"
-  member  = "serviceAccount:${google_service_account.vm_sa.email}"
-}
-
-resource "google_project_iam_member" "vm_sa_metric_writer" {
-  project = var.project_id
-  role    = "roles/monitoring.metricWriter"
-  member  = "serviceAccount:${google_service_account.vm_sa.email}"
-}
-
 resource "google_compute_instance" "coordination_server" {
   name         = var.instance_name
   machine_type = var.machine_type
@@ -96,10 +76,11 @@ resource "google_compute_instance" "coordination_server" {
     enable_integrity_monitoring = true
   }
 
-  service_account {
-    email  = google_service_account.vm_sa.email
-    scopes = ["cloud-platform"] # actual access is bounded by the IAM roles above, not by scope
-  }
+  # No service account attached — the containers on this box never call a
+  # GCP API, so it has zero standing access to anything, by construction
+  # rather than by narrowly-scoped IAM. (This also keeps the deployer SA's
+  # own permissions smaller: it never needs to create service accounts or
+  # edit project IAM policy.)
 
   metadata = {
     ssh-keys = "${var.ssh_user}:${var.ssh_public_key}"
