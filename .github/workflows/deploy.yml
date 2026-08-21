@@ -103,13 +103,14 @@ jobs:
 
       - name: Write the inventory (target host resolved via IAP, not a public IP)
         run: |
+          mkdir -p /tmp/ansible-cp
           cat > inventory/hosts.ini <<INVENTORY_EOF
           [coordination_server]
           ${{ needs.tofu-apply.outputs.instance_name }} ansible_host=${{ needs.tofu-apply.outputs.instance_name }} ansible_user=deploy
 
           [coordination_server:vars]
           ansible_ssh_private_key_file=~/.ssh/deploy_key
-          ansible_ssh_common_args=-o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --project=${{ secrets.GCP_PROJECT_ID }} --zone=${{ needs.tofu-apply.outputs.zone }}" -o StrictHostKeyChecking=accept-new
+          ansible_ssh_common_args=-o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --project=${{ secrets.GCP_PROJECT_ID }} --zone=${{ needs.tofu-apply.outputs.zone }}" -o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPersist=15m -o ControlPath=/tmp/ansible-cp/%C
           INVENTORY_EOF
 
       - name: Run playbook

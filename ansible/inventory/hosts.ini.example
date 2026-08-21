@@ -10,4 +10,10 @@ coordination-server ansible_host=coordination-server ansible_user=deploy
 
 [coordination_server:vars]
 ansible_ssh_private_key_file=~/.ssh/deploy_key
-ansible_ssh_common_args=-o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --project=YOUR_PROJECT_ID --zone=YOUR_ZONE" -o StrictHostKeyChecking=accept-new
+ansible_ssh_common_args=-o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --project=YOUR_PROJECT_ID --zone=YOUR_ZONE" -o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPersist=15m -o ControlPath=/tmp/ansible-cp/%C
+# ControlMaster/ControlPersist matter a lot here specifically: without
+# connection reuse, ssh re-invokes the IAP ProxyCommand — a whole new
+# `gcloud compute start-iap-tunnel` — for every single task. That's the
+# difference between the whole play taking a couple of minutes and it taking
+# the better part of an hour. Make sure /tmp/ansible-cp exists first:
+#   mkdir -p /tmp/ansible-cp

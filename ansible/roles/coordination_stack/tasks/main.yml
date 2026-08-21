@@ -38,8 +38,10 @@
   register: cookie_secret_file
 
 - name: Generate a Headplane cookie secret
+  # No pipe here, so no need for bash/pipefail — plain POSIX sh (Ubuntu's
+  # /bin/sh is dash, which rejects `set -o pipefail` outright) is enough.
   ansible.builtin.shell: |
-    set -euo pipefail
+    set -eu
     openssl rand -hex 16 > {{ stack_dir }}/headplane/.cookie_secret
   args:
     creates: "{{ stack_dir }}/headplane/.cookie_secret"
