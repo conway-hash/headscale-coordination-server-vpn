@@ -29,7 +29,12 @@
     src: headscale-config.yaml.j2
     dest: /etc/headscale/config.yaml
     mode: "0640"
-  notify: restart headscale
+  # No notify/handler here on purpose: a bind-mounted config file changing
+  # on disk is invisible to `docker compose up`'s own change detection (it
+  # hashes the compose file, not what's inside a bind mount), and handlers
+  # only fire at the end of the play anyway — too late for the health check
+  # a few tasks down. `recreate: always` below is what actually guarantees
+  # every container picks up whatever was just rendered.
 
 # --- Headplane cookie secret: generated once on the box, never in git ------
 - name: Check for an existing Headplane cookie secret
@@ -79,6 +84,7 @@
     project_src: "{{ stack_dir }}"
     services: [headscale]
     state: present
+    recreate: always
 
 - name: Wait for headscale to report healthy
   community.docker.docker_container_info:
@@ -131,4 +137,7 @@
   community.docker.docker_compose_v2:
     project_src: "{{ stack_dir }}"
     state: present
-    recreate: auto
+    # always, not auto: Caddyfile/headplane config.yaml are bind mounts too,
+    # so compose's own change detection can't see edits to their content —
+    # same reasoning as the headscale recreate above.
+    recreate: always
