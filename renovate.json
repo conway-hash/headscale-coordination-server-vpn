@@ -12,9 +12,9 @@
     {
       "customType": "regex",
       "description": "Headscale image version, pinned as a var rather than in the (templated) docker-compose file Renovate can't parse.",
-      "fileMatch": [
-        "^ansible/group_vars/all/vars\\.yml$",
-        "^ansible/roles/coordination_stack/defaults/main\\.yml$"
+      "managerFilePatterns": [
+        "/^ansible/group_vars/all/vars\\.yml$/",
+        "/^ansible/roles/coordination_stack/defaults/main\\.yml$/"
       ],
       "matchStrings": [
         "headscale_version:\\s*[\"'](?<currentValue>[^\"']+)[\"']"
@@ -25,9 +25,9 @@
     {
       "customType": "regex",
       "description": "Headplane image version, same reasoning.",
-      "fileMatch": [
-        "^ansible/group_vars/all/vars\\.yml$",
-        "^ansible/roles/coordination_stack/defaults/main\\.yml$"
+      "managerFilePatterns": [
+        "/^ansible/group_vars/all/vars\\.yml$/",
+        "/^ansible/roles/coordination_stack/defaults/main\\.yml$/"
       ],
       "matchStrings": [
         "headplane_version:\\s*[\"'](?<currentValue>[^\"']+)[\"']"
@@ -38,9 +38,9 @@
     {
       "customType": "regex",
       "description": "Caddy image version, same reasoning.",
-      "fileMatch": [
-        "^ansible/group_vars/all/vars\\.yml$",
-        "^ansible/roles/coordination_stack/defaults/main\\.yml$"
+      "managerFilePatterns": [
+        "/^ansible/group_vars/all/vars\\.yml$/",
+        "/^ansible/roles/coordination_stack/defaults/main\\.yml$/"
       ],
       "matchStrings": [
         "caddy_version:\\s*[\"'](?<currentValue>[^\"']+)[\"']"
