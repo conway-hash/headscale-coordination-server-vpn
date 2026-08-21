@@ -12,11 +12,14 @@ headscale:
   public_url: "https://{{ domain }}"
   api_key: "{{ headscale_api_key }}"
 
+# Same Google OAuth client as headscale's own oidc: block below in
+# headscale-config.yaml.j2 — just a second redirect URI registered on it
+# (/admin/oidc/callback here vs /oidc/callback for headscale).
 oidc:
   enabled: true
   issuer: "https://accounts.google.com"
-  client_id: "{{ headplane_oidc_client_id }}"
-  client_secret: "{{ headplane_oidc_client_secret }}"
+  client_id: "{{ oidc_client_id }}"
+  client_secret: "{{ oidc_client_secret }}"
   scope: "openid email profile"
   default_role: "member"
   disable_api_key_login: true

@@ -91,10 +91,15 @@ jobs:
 
       - name: Write CI-only secrets vars (never committed)
         run: |
-          cat > group_vars/all/secrets.yml <<VARS_EOF
-          headplane_oidc_client_id: "${{ secrets.GOOGLE_OIDC_CLIENT_ID }}"
-          headplane_oidc_client_secret: "${{ secrets.GOOGLE_OIDC_CLIENT_SECRET }}"
-          VARS_EOF
+          {
+            echo "oidc_client_id: \"${{ secrets.GOOGLE_OIDC_CLIENT_ID }}\""
+            echo "oidc_client_secret: \"${{ secrets.GOOGLE_OIDC_CLIENT_SECRET }}\""
+            echo "oidc_allowed_users:"
+            IFS=',' read -ra USERS <<< "${{ vars.HEADSCALE_ALLOWED_OIDC_USERS }}"
+            for u in "${USERS[@]}"; do
+              echo "  - \"$u\""
+            done
+          } > group_vars/all/secrets.yml
 
       - name: Write the inventory (target host resolved via IAP, not a public IP)
         run: |

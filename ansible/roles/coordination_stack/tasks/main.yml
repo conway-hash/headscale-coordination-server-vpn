@@ -1,4 +1,15 @@
 ---
+- name: Refuse to deploy an open tailnet
+  ansible.builtin.assert:
+    that:
+      - oidc_client_id | length > 0
+      - oidc_client_secret | length > 0
+      - oidc_allowed_users | length > 0
+    fail_msg: >-
+      oidc_client_id/oidc_client_secret/oidc_allowed_users must all be set —
+      without oidc_allowed_users specifically, ANY Google account can
+      authenticate a tailscale client against this server. See SETUP.md.
+
 - name: Create stack + data directories
   ansible.builtin.file:
     path: "{{ item }}"

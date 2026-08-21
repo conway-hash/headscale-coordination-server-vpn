@@ -124,16 +124,32 @@ issuer.
 ssh-keygen -t ed25519 -f ./deploy_key -N "" -C "gh-actions-ansible"
 ```
 
-## 6. Google OAuth client for Headplane login
+## 6. Google OAuth client — used by TWO separate login flows
+
+This one client covers both:
+
+- **Headscale's own OIDC** — lets `tailscale up --login-server=https://$DOMAIN`
+  authenticate a device via Google SSO instead of a pre-auth key.
+- **Headplane's OIDC** — lets you log into the admin UI at `/admin`.
 
 Console → **APIs & Services → Credentials → Create Credentials → OAuth client
-ID** → Application type "Web application".
+ID** → Application type "Web application". Add **both** authorized redirect
+URIs to it:
 
-Authorized redirect URI: `https://${DOMAIN}/admin/oidc/callback` — double
-check the exact path against the Headplane version you're running (it logs
-the redirect URI it expects on its first OIDC attempt if this is wrong).
+- `https://${DOMAIN}/oidc/callback` (headscale — fixed path, not configurable)
+- `https://${DOMAIN}/admin/oidc/callback` (headplane — double-check this one
+  against the Headplane version you're running; it logs the redirect URI it
+  expects on its first OIDC attempt if this is wrong)
 
 Note the generated **Client ID** and **Client secret**.
+
+**Also decide who's allowed to join the tailnet.** Without this, any Google
+account on the internet could authenticate a device against your headscale
+server — the playbook refuses to deploy if it's empty, on purpose.
+
+```bash
+export ALLOWED_USERS="you@gmail.com"   # comma-separated if more than one
+```
 
 ## 7. Push everything into GitHub secrets/variables
 
@@ -147,11 +163,12 @@ gh secret set SSH_PRIVATE_KEY                --body "$(cat deploy_key)" -R "$REP
 gh secret set GOOGLE_OIDC_CLIENT_ID          --body "PASTE_CLIENT_ID" -R "$REPO"
 gh secret set GOOGLE_OIDC_CLIENT_SECRET      --body "PASTE_CLIENT_SECRET" -R "$REPO"
 
-gh variable set GCP_REGION    --body "$REGION" -R "$REPO"
-gh variable set GCP_ZONE      --body "$ZONE" -R "$REPO"
-gh variable set INSTANCE_NAME --body "coordination-server" -R "$REPO"
-gh variable set MACHINE_TYPE  --body "e2-micro" -R "$REPO"
-gh variable set DOMAIN        --body "$DOMAIN" -R "$REPO"
+gh variable set GCP_REGION                 --body "$REGION" -R "$REPO"
+gh variable set GCP_ZONE                   --body "$ZONE" -R "$REPO"
+gh variable set INSTANCE_NAME              --body "coordination-server" -R "$REPO"
+gh variable set MACHINE_TYPE               --body "e2-micro" -R "$REPO"
+gh variable set DOMAIN                     --body "$DOMAIN" -R "$REPO"
+gh variable set HEADSCALE_ALLOWED_OIDC_USERS --body "$ALLOWED_USERS" -R "$REPO"
 ```
 
 Now delete `deploy_key` and `deploy_key.pub` from your local disk — they're
@@ -168,6 +185,9 @@ in GitHub Secrets now and don't need to exist anywhere else.
    record resolves, so it's fine to apply first and add DNS a few minutes
    later.
 4. Visit `https://$DOMAIN/admin` and log in via Google OIDC.
+5. Join a device: `tailscale up --login-server=https://$DOMAIN` — it opens a
+   browser for the same Google login, checked against
+   `HEADSCALE_ALLOWED_OIDC_USERS`.
 
 ## Rotating things
 

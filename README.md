@@ -21,8 +21,11 @@ coordination server: [Headscale](https://github.com/juanfont/headscale) behind
                         ┌─────────────────────────┼─────────────────────┐
                         ▼                         ▼
                  headscale (8080)          headplane (3000)
-                 sqlite + tailnet          OIDC login (Google)
-                 keys, DERP map            reads/writes headscale API
+                 sqlite + tailnet          OIDC login (Google) →
+                 keys, DERP map            you, into /admin
+                 OIDC login (Google) →
+                 a device joining
+                 via `tailscale up`
 
  GitHub Actions ──WIF──▶ GCP IAM ──▶ tofu apply (VM, network, firewall)
                  └──IAP tunnel, no public :22──▶ ansible-playbook (docker,
@@ -102,6 +105,12 @@ exactly once, on merge to `main`.
   persisted root-only outside git. The Google OIDC client ID/secret are
   GitHub Secrets, materialized into a gitignored file only inside the CI job
   that needs them.
+- **Joining the tailnet requires being on an explicit allowlist.** One Google
+  OAuth client backs two separate logins — headscale's own OIDC (a device
+  running `tailscale up`) and Headplane's OIDC (you, into `/admin`) — and the
+  playbook refuses to deploy at all if `oidc_allowed_users` is empty. Without
+  that check, anyone with a Google account could authenticate a device onto
+  your VPN.
 
 ## Running it yourself
 

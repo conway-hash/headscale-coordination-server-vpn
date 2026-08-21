@@ -5,5 +5,14 @@ tailnet_base_domain: ts.conway-hash.com
 headscale_version: "0.29.3"
 headplane_version: "0.7.0"
 caddy_version: "2.11.4-alpine"
-headplane_oidc_client_id: ""
-headplane_oidc_client_secret: ""
+
+# Shared between headscale's own OIDC (tailnet client login) and Headplane's
+# OIDC (admin UI login) — one Google OAuth client, two redirect URIs
+# registered against it. See SETUP.md.
+oidc_client_id: ""
+oidc_client_secret: ""
+
+# REQUIRED, no safe default: any Google account could join the tailnet
+# otherwise. List of emails allowed to authenticate a tailscale client
+# against this headscale server.
+oidc_allowed_users: []
