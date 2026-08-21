@@ -17,7 +17,7 @@ services:
       test: ["CMD", "headscale", "health"]
 
   headplane:
-    image: {{ headplane_image }}
+    image: ghcr.io/tale/headplane:{{ headplane_version }}
     container_name: headplane
     restart: unless-stopped
     depends_on:
@@ -29,7 +29,7 @@ services:
       - {{ stack_dir }}/headplane/data:/var/lib/headplane
 
   caddy:
-    image: caddy:2-alpine
+    image: caddy:{{ caddy_version }}
     container_name: caddy
     restart: unless-stopped
     depends_on:

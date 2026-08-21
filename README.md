@@ -49,7 +49,28 @@ ansible/
   deploy.yml             on merge to main: tofu apply, then the Ansible playbook
   ansible-lint.yml       PR check: ansible-lint
 SETUP.md               one-time bootstrap: GCP project, WIF, secrets — run once by hand
+renovate.json          dependency updates: GitHub Actions, terraform provider,
+                       Ansible Galaxy collections, and the pinned headscale/
+                       headplane/caddy image versions (see below)
 ```
+
+## Keeping dependencies current
+
+[Renovate](https://github.com/apps/renovate) (not installed by default — add
+it to this repo from the GitHub Marketplace to activate `renovate.json`)
+opens PRs for:
+
+- GitHub Actions versions used in `.github/workflows/`
+- the `google` provider constraint in `terraform/versions.tf`
+- the Ansible Galaxy collections in `ansible/requirements.yml`
+- the `headscale_version` / `headplane_version` / `caddy_version` pins in
+  `ansible/group_vars/all/vars.yml` (these are read out of the vars file by
+  a custom regex rule, since the actual `docker-compose.yml` is a Jinja
+  template Renovate can't parse directly)
+
+GitHub's own Dependabot security alerts and automated security fixes are
+also on for this repo — that's independent of Renovate and needs no config
+file; see repo Settings → Code security.
 
 ## How CI/CD works
 

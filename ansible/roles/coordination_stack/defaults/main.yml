@@ -3,6 +3,7 @@ stack_dir: /opt/coordination-stack
 domain: vpn.conway-hash.com
 tailnet_base_domain: ts.conway-hash.com
 headscale_version: "0.29.3"
-headplane_image: "ghcr.io/tale/headplane:latest"
+headplane_version: "0.7.0"
+caddy_version: "2.11.4-alpine"
 headplane_oidc_client_id: ""
 headplane_oidc_client_secret: ""
