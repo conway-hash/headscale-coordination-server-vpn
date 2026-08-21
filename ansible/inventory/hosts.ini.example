@@ -1,19 +1,25 @@
 # Real inventory (inventory/hosts.ini) is git-ignored and, in CI, generated
 # at deploy time from OpenTofu outputs — see .github/workflows/deploy.yml.
 #
-# For a manual/local run, copy this to inventory/hosts.ini and fill in your
-# own project/zone. Note the host is the *instance name*, not an IP: SSH goes
-# through an IAP tunnel, never over the public internet.
+# For a manual/local run: first open ONE persistent IAP tunnel in another
+# terminal (leave it running for the whole session):
+#
+#   gcloud compute start-iap-tunnel coordination-server 22 \
+#     --local-host-port=localhost:2222 \
+#     --project=YOUR_PROJECT_ID --zone=YOUR_ZONE
+#
+# Then copy this file to inventory/hosts.ini and use it as-is — Ansible
+# connects to that local forwarded port, not to the VM's real IP, so SSH
+# never touches the public internet.
+#
+# (A per-connection stdin ProxyCommand instead of a persistent tunnel was
+# tried first and made things dramatically slower — see the deploy.yml
+# comment for why. One tunnel for the whole run is the pattern that works.)
 
 [coordination_server]
-coordination-server ansible_host=coordination-server ansible_user=deploy
+coordination-server ansible_host=127.0.0.1 ansible_port=2222 ansible_user=deploy
 
 [coordination_server:vars]
 ansible_ssh_private_key_file=~/.ssh/deploy_key
-ansible_ssh_common_args=-o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --project=YOUR_PROJECT_ID --zone=YOUR_ZONE" -o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPersist=15m -o ControlPath=/tmp/ansible-cp/%C
-# ControlMaster/ControlPersist matter a lot here specifically: without
-# connection reuse, ssh re-invokes the IAP ProxyCommand — a whole new
-# `gcloud compute start-iap-tunnel` — for every single task. That's the
-# difference between the whole play taking a couple of minutes and it taking
-# the better part of an hour. Make sure /tmp/ansible-cp exists first:
-#   mkdir -p /tmp/ansible-cp
+ansible_ssh_common_args=-o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPersist=15m -o ControlPath=/tmp/ansible-cp/%C
+# mkdir -p /tmp/ansible-cp before running the playbook.

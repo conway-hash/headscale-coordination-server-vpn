@@ -101,17 +101,37 @@ jobs:
             done
           } > group_vars/all/secrets.yml
 
-      - name: Write the inventory (target host resolved via IAP, not a public IP)
+      - name: Open one persistent IAP tunnel for the whole job
+        # A stdin-piped ProxyCommand re-invoked per SSH connection (the
+        # earlier approach) turned out to interact badly with
+        # ControlPersist's backgrounding — first task alone took 2+ minutes.
+        # A single local port-forward, opened once and reused by every plain
+        # SSH connection Ansible makes, is the standard pattern and avoids
+        # that entirely.
         run: |
-          mkdir -p /tmp/ansible-cp
+          nohup gcloud compute start-iap-tunnel \
+            "${{ needs.tofu-apply.outputs.instance_name }}" 22 \
+            --local-host-port=localhost:2222 \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
+            --zone="${{ needs.tofu-apply.outputs.zone }}" \
+            > /tmp/iap-tunnel.log 2>&1 &
+          for i in $(seq 1 30); do
+            grep -q "Listening on port" /tmp/iap-tunnel.log && break
+            sleep 2
+          done
+          cat /tmp/iap-tunnel.log
+
+      - name: Write the inventory (target is the local IAP tunnel, not a public IP)
+        run: |
           cat > inventory/hosts.ini <<INVENTORY_EOF
           [coordination_server]
-          ${{ needs.tofu-apply.outputs.instance_name }} ansible_host=${{ needs.tofu-apply.outputs.instance_name }} ansible_user=deploy
+          ${{ needs.tofu-apply.outputs.instance_name }} ansible_host=127.0.0.1 ansible_port=2222 ansible_user=deploy
 
           [coordination_server:vars]
           ansible_ssh_private_key_file=~/.ssh/deploy_key
-          ansible_ssh_common_args=-o ProxyCommand="gcloud compute start-iap-tunnel %h %p --listen-on-stdin --project=${{ secrets.GCP_PROJECT_ID }} --zone=${{ needs.tofu-apply.outputs.zone }}" -o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPersist=15m -o ControlPath=/tmp/ansible-cp/%C
+          ansible_ssh_common_args=-o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPersist=15m -o ControlPath=/tmp/ansible-cp/%C
           INVENTORY_EOF
+          mkdir -p /tmp/ansible-cp
 
       - name: Run playbook
         run: |
