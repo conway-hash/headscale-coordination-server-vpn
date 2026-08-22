@@ -136,3 +136,21 @@ jobs:
       - name: Run playbook
         run: |
           ansible-playbook playbook.yml -e "domain=${{ vars.DOMAIN }}"
+
+      - name: Smoke test the public endpoint
+        # Ansible reporting "ok" only means the containers came up — it says
+        # nothing about whether Caddy actually got a valid cert or the site
+        # is reachable the way a real user hits it. This is the one check
+        # that actually looks from the outside in.
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://${{ vars.DOMAIN }}/" || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "OK: https://${{ vars.DOMAIN }}/ returned 200"
+              exit 0
+            fi
+            echo "Attempt $i/10: got HTTP $code, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::https://${{ vars.DOMAIN }}/ never returned 200 after deploy"
+          exit 1
